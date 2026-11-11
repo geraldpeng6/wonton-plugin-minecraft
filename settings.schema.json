@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eula"],
+  "x-wonton-order": [
+    "eula",
+    "server_type",
+    "mc_version",
+    "difficulty",
+    "game_mode",
+    "motd",
+    "max_players",
+    "memory_gb",
+    "whitelist_enabled",
+    "whitelist"
+  ],
+  "properties": {
+    "eula": {
+      "type": "boolean",
+      "x-wonton-title": { "zh": "我已阅读并同意 Minecraft EULA", "en": "I have read and accept the Minecraft EULA" },
+      "x-wonton-description": {
+        "zh": "服务端程序是 Mojang 的专有软件，必须先同意最终用户许可协议才能下载和运行：https://aka.ms/MinecraftEULA",
+        "en": "The server program is Mojang proprietary software; it can only be downloaded and run after accepting the EULA: https://aka.ms/MinecraftEULA"
+      }
+    },
+    "server_type": {
+      "type": "string",
+      "enum": ["VANILLA", "PAPER"],
+      "default": "VANILLA",
+      "x-wonton-title": { "zh": "服务端类型", "en": "Server type" },
+      "x-wonton-description": {
+        "zh": "原版是官方原汁原味；Paper 性能更好、插件更多，玩法上兼容原版",
+        "en": "Vanilla is the official unmodified server; Paper performs better and supports plugins while staying compatible"
+      },
+      "x-wonton-enum-titles": {
+        "VANILLA": { "zh": "原版（官方）", "en": "Vanilla (official)" },
+        "PAPER": { "zh": "Paper（高性能）", "en": "Paper (high performance)" }
+      }
+    },
+    "mc_version": {
+      "type": "string",
+      "maxLength": 16,
+      "pattern": "^(LATEST|[0-9]+(\\.[0-9]+){0,2})$",
+      "default": "LATEST",
+      "x-wonton-title": { "zh": "游戏版本", "en": "Game version" },
+      "x-wonton-description": {
+        "zh": "LATEST 跟随最新正式版；填具体版本号（如 1.21.4）可以钉住，大家的客户端要对得上",
+        "en": "LATEST follows the newest release; pin a specific version (e.g. 1.21.4) so everyone's client matches"
+      }
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["peaceful", "easy", "normal", "hard"],
+      "default": "easy",
+      "x-wonton-title": { "zh": "难度", "en": "Difficulty" },
+      "x-wonton-enum-titles": {
+        "peaceful": { "zh": "和平", "en": "Peaceful" },
+        "easy": { "zh": "简单", "en": "Easy" },
+        "normal": { "zh": "普通", "en": "Normal" },
+        "hard": { "zh": "困难", "en": "Hard" }
+      }
+    },
+    "game_mode": {
+      "type": "string",
+      "enum": ["survival", "creative", "adventure", "spectator"],
+      "default": "survival",
+      "x-wonton-title": { "zh": "游戏模式", "en": "Game mode" },
+      "x-wonton-enum-titles": {
+        "survival": { "zh": "生存", "en": "Survival" },
+        "creative": { "zh": "创造", "en": "Creative" },
+        "adventure": { "zh": "冒险", "en": "Adventure" },
+        "spectator": { "zh": "旁观", "en": "Spectator" }
+      }
+    },
+    "motd": {
+      "type": "string",
+      "maxLength": 128,
+      "default": "家庭 Minecraft 服务器",
+      "x-wonton-title": { "zh": "服务器简介", "en": "Server message (MOTD)" },
+      "x-wonton-description": {
+        "zh": "显示在客户端服务器列表里的一行字",
+        "en": "The line shown under the server name in the client's server list"
+      }
+    },
+    "max_players": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20,
+      "x-wonton-title": { "zh": "人数上限", "en": "Max players" }
+    },
+    "memory_gb": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16,
+      "default": 2,
+      "x-wonton-title": { "zh": "内存（GB）", "en": "Memory (GB)" },
+      "x-wonton-description": {
+        "zh": "服务端 Java 堆的大小；人多、世界大就调大，别超过这台机器分给插件的内存上限",
+        "en": "Java heap size for the server; raise it for more players or a bigger world, but stay under the memory the host grants this plugin"
+      }
+    },
+    "whitelist_enabled": {
+      "type": "boolean",
+      "default": false,
+      "x-wonton-title": { "zh": "开启白名单", "en": "Enable whitelist" },
+      "x-wonton-description": {
+        "zh": "打开后只有名单上的玩家进得来",
+        "en": "Only players on the list can join when enabled"
+      }
+    },
+    "whitelist": {
+      "type": "string",
+      "maxLength": 512,
+      "pattern": "^\\s*[A-Za-z0-9_]{1,16}(\\s*,\\s*[A-Za-z0-9_]{1,16})*\\s*$",
+      "x-wonton-title": { "zh": "白名单玩家", "en": "Whitelist players" },
+      "x-wonton-description": {
+        "zh": "Minecraft 玩家名，用英文逗号分隔，如 Alex,Steve",
+        "en": "Minecraft player names separated by commas, e.g. Alex,Steve"
+      }
+    }
+  }
+}
