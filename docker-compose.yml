@@ -3,7 +3,7 @@
 # 专有软件，首次启动由镜像按 Minecraft EULA 下载，所以必须先由主人同意 EULA（settings 的 eula）。
 services:
   minecraft:
-    image: ghcr.io/itzg/minecraft-server:2026.11.0-java21@sha256:5fbaa7d1eb8d5575cd009c247f872d1fd6b5cd0f096e8ea173648cd4e43d52d4
+    image: ghcr.io/itzg/minecraft-server:2026.11.0@sha256:8d5080d8dcd0a2629c2e4f248678373a337a40537ad6ef2857c7dbcda6e3eadd
     # 镜像能以任意 uid 运行（入口检测到非 root 就跳过内部的用户切换），数据目录由核心按这个属主交给容器。
     user: "${PUID}:${PGID}"
     environment:
@@ -82,8 +82,8 @@ x-wonton:
 
       Devices on the LAN connect to the server's LAN address on port 25565; friends outside connect over the Wonton tunnel on the same port. Common options (server type, version, difficulty, game mode, player limit, memory) live in the plugin's settings.
   release_notes:
-    zh: 首个版本：基于 itzg 的 docker-minecraft-server 镜像（2026.11.0，Java 21），原版（Vanilla）和 Paper 可选。
-    en: "First release: based on itzg's docker-minecraft-server image (2026.11.0, Java 21), Vanilla or Paper."
+    zh: 首个版本：基于 itzg 的 docker-minecraft-server 镜像（2026.11.0，Java 25），原版（Vanilla）和 Paper 可选。
+    en: "First release: based on itzg's docker-minecraft-server image (2026.11.0, Java 25), Vanilla or Paper."
   # 没有网页：这是一台游戏服务器，游戏客户端直连 25565。
   lan:
     ports:
