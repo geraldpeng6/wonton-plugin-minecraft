@@ -1,78 +1,107 @@
-# 示例插件：nginx 显示一个网页，向登录的人问好。改成自己的应用见 https://github.com/wontonapp/wonton-docs/blob/main/develop.md#写插件。
+# Minecraft Java 版服务器：一家人和朋友连进家里的同一个世界玩。
+# 上游镜像 itzg/minecraft-server（镜像和脚本 Apache-2.0）；服务端本体（server.jar）是 Mojang
+# 专有软件，首次启动由镜像按 Minecraft EULA 下载，所以必须先由主人同意 EULA（settings 的 eula）。
 services:
-  web:
-    # 镜像按摘要固定（多架构镜像写清单列表的摘要），标签只给人看。
-    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+  minecraft:
+    image: ghcr.io/itzg/minecraft-server:2026.11.0@sha256:8d5080d8dcd0a2629c2e4f248678373a337a40537ad6ef2857c7dbcda6e3eadd
+    # 镜像能以任意 uid 运行（入口检测到非 root 就跳过内部的用户切换），数据目录由核心按这个属主交给容器。
+    user: "${PUID}:${PGID}"
     environment:
-      # 网关代登录：SSI 回显的 Remote-User 只信核心带来的。官方镜像启动时对 templates 目录里的
-      # *.template 做 envsubst，把下面的地址换进 nginx 配置（见 web/default.conf.template）。
-      WONTON_CORE_ADDRESS: ${WONTON_CORE_ADDRESS}
-    # 包里的文件经 configs 交给容器（核心在启动前写进去），不能用卷挂载。
-    configs:
-      - source: site
-        target: /etc/nginx/templates/default.conf.template
-      - source: page
-        target: /usr/share/nginx/html/index.html
-      - source: tokens
-        target: /usr/share/nginx/html/tokens.css
+      # 同意 EULA 才会启动：没同意时镜像退出，日志写明原因。settings 的 eula 是必填布尔、没有默认值，
+      # `:-false` 是核心还不支持设置页时的兜底——照样拒绝启动，绝不悄悄替主人同意。
+      EULA: "${WONTON_SETTING_EULA:-false}"
+      TYPE: "${WONTON_SETTING_SERVER_TYPE:-VANILLA}"
+      # LATEST 是上游默认：自动跟随最新的正式版。
+      VERSION: "${WONTON_SETTING_MC_VERSION:-LATEST}"
+      DIFFICULTY: "${WONTON_SETTING_DIFFICULTY:-easy}"
+      MODE: "${WONTON_SETTING_GAME_MODE:-survival}"
+      MOTD: "${WONTON_SETTING_MOTD:-家庭 Minecraft 服务器}"
+      MAX_PLAYERS: "${WONTON_SETTING_MAX_PLAYERS:-20}"
+      MEMORY: "${WONTON_SETTING_MEMORY_GB:-2}G"
+      ENABLE_WHITELIST: "${WONTON_SETTING_WHITELIST_ENABLED:-false}"
+      WHITELIST: "${WONTON_SETTING_WHITELIST:-}"
+      # 正版账号校验是默认（server.properties 的 online-mode 就是 true），写出来是给审核看的：
+      # 连上 25565 的人都要有 Minecraft 账号，端口开着不等于谁都能进。离线模式不提供，见 README。
+      ONLINE_MODE: "true"
+      # RCON 供本机管理（容器内 rcon-cli），端口不发布；口令由核心生成。
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: ${WONTON_SECRET_RCON_PASSWORD}
+      # 镜像不读 HTTP(S)_PROXY：下载器 mc-image-helper 是 Java，认 -Dhttp.proxyHost 这类系统属性；
+      # 上游的 PROXY 只认 host:port，从 ${WONTON_PROXY_URL} 拆不开，所以按平台固定出口别名写 host
+      # 和端口——配了出网代理时非空，没配时全是空串，走直连。
+      PROXY: "${WONTON_PROXY_URL:-}"
+      PROXY_HOST: "${WONTON_PROXY_URL:+egress.wonton.internal}"
+      PROXY_PORT: "${WONTON_PROXY_URL:+3128}"
+      # 服务端自己的 JVM 也要经代理连 Mojang 的会话服务器（正版校验、白名单取名要用）。
+      # JVM_DD_OPTS 按空格拆、冒号换成 =（见上游 start-finalExec）。
+      JVM_DD_OPTS: "${WONTON_PROXY_URL:+http.proxyHost:egress.wonton.internal http.proxyPort:3128 https.proxyHost:egress.wonton.internal https.proxyPort:3128}"
+    volumes:
+      # 世界、配置、白名单都在 /data。
+      - ${WONTON_APP_DATA}:/data
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      # 镜像自带的 mc-health（mc-monitor）真的去 ping 25565 的服务端，不只是进程活着。
+      test: ["CMD", "mc-health"]
       interval: 30s
-      timeout: 5s
-      start_period: 30s
-      start_interval: 1s
-
-configs:
-  site:
-    file: web/default.conf.template
-  page:
-    file: web/index.html
-  tokens:
-    file: web/tokens.css
+      timeout: 10s
+      # 首次启动要下载服务端再生成世界，给足时间；start_interval 让就绪了能马上被发现。
+      start_period: 10m
+      start_interval: 5s
+      retries: 3
+    # 停机时服务端要存世界再退出（镜像默认等 60 秒），别按 Docker 默认的 10 秒掐掉。
+    stop_grace_period: 75s
 
 x-wonton:
-  spec: "0.6"
-  # 换成你自己的：反向域名形式，装上以后不能改。
-  id: app.example.hello
-  version: 0.1.1
+  spec: "0.12"
+  id: app.github.itzg.minecraft
+  version: 0.1.0
   kind: app
-  title: { zh: 你好, en: Hello }
-  description: { zh: 向登录的人问好的示例网页, en: An example page that greets whoever is signed in }
+  title: { zh: Minecraft 服务器（Java 版）, en: Minecraft Server (Java Edition) }
+  description:
+    zh: 把《我的世界》Java 版开成家里的服务器，家人和朋友连上来一起玩。
+    en: Host a Minecraft Java Edition world at home for family and friends to join.
   icon: icon.svg
   notices: [NOTICE]
-  screenshots: [screenshots/home.png]
-  author: { name: Example }
-  homepage: https://nginx.org
-  # 应用（这里是 nginx）的许可证；插件包自己的许可证写在仓库的 LICENSE 里。
-  license: BSD-2-Clause
+  author: { name: geraldpeng6, url: https://github.com/geraldpeng6 }
+  homepage: https://docker-minecraft-server.readthedocs.io
+  # 应用是 Minecraft 服务端（Mojang 专有，运行时经 itzg 镜像下载）；镜像和脚本按 Apache-2.0 发布。
+  license: Apache-2.0
   tags:
-    zh: [工具]
-    en: [Tools]
+    zh: [游戏]
+    en: [Games]
   about:
     zh: |
-      一个示例网页：登录以后，页面会向你问好。新建插件时可以照着改。
+      在家里搭一个《我的世界》Java 版（Minecraft Java Edition）服务器：家人的电脑、同学的电脑，只要装了 Java 版游戏，都连进同一个世界。像自己开了个小服，数据和世界都存在自己家里。
+
+      安装时要先勾选同意 Minecraft EULA——服务端程序是 Mojang 的专有软件，首次启动会自动下载。正版账号校验默认开启，进服的人都要用自己的 Minecraft 账号；也可以打开白名单，只留名单上的玩家进得来。
+
+      同一局域网的设备连服务器的局域网地址，端口 25565；出门在外的朋友经云吞的隧道连，端口也是 25565。常用设置（服务端类型、版本、难度、游戏模式、人数上限、内存）在插件的设置里改。
     en: |
-      An example page: once you are signed in, the page says hello. Copy it as a starting point for a new plugin.
-  release_notes: { zh: 名字和说明更新。, en: Product name and description update. }
-  webui:
-    service: web
-    port: 80
-    # 示例页回显网关注入的用户名，见 https://github.com/wontonapp/wonton-docs/blob/main/plugin-spec.md#网关代登录sso-proxy。
-    sso: proxy
-    proxy:
-      headers:
-        Remote-User: "{user}"
-  # 能放进侧边栏“我的应用”的页面，见 https://github.com/wontonapp/wonton-docs/blob/main/plugin-spec.md#应用页面tabs。放不放由用户决定。
-  tabs:
-    - id: home
-      title: { zh: 主页, en: Home }
-      icon: tabs/home.svg
-      icon_selected: tabs/home-fill.svg
-      path: /
-      # 这个页面没做适配，用默认的 inset：从状态栏下沿开始，页面不用管安全区。
-      # 想让内容从状态栏后面滚过，写 layout: edge-to-edge，并用 --wonton-inset-* 留出系统安全区的位置。
-  permissions: []
-  # 上游 nginx 官方镜像，amd64 和 arm64 都有；上游没写最低内存，按本机空闲实测取整（实测约 24M，取 64M）。
+      Run a Minecraft Java Edition server at home: family and friends with the Java Edition game all join the same world. Like hosting your own little server, with the world and data stored at home.
+
+      You must accept the Minecraft EULA at install time — the server program is Mojang proprietary software and is downloaded automatically on first start. Online-mode (premium account) verification is on by default; optionally enable a whitelist so only listed players can join.
+
+      Devices on the LAN connect to the server's LAN address on port 25565; friends outside connect over the Wonton tunnel on the same port. Common options (server type, version, difficulty, game mode, player limit, memory) live in the plugin's settings.
+  release_notes:
+    zh: 首个版本：基于 itzg 的 docker-minecraft-server 镜像（2026.11.0，Java 25），原版（Vanilla）和 Paper 可选。
+    en: "First release: based on itzg's docker-minecraft-server image (2026.11.0, Java 25), Vanilla or Paper."
+  # 没有网页：这是一台游戏服务器，游戏客户端直连 25565。
+  lan:
+    ports:
+      - { service: minecraft, port: 25565 }
+  tunnel:
+    ports:
+      - { service: minecraft, port: 25565 }
+  permissions:
+    # 下载服务端 jar、连 Mojang 的版本和会话接口，都要出网。
+    - network.egress
+    # 局域网里的游戏客户端直连 25565。
+    - network.lan
+  secrets:
+    rcon_password:
+      generate: { bytes: 32 }
+  settings: settings.schema.json
   requirements:
+    # 镜像按清单列表（index）摘要固定，amd64 和 arm64 都有。
     arch: [amd64, arm64]
-    memory: 64M
+    # 服务端至少 2G 内存（上游建议 1G 堆起步，家庭多人玩 2G 起步）。
+    memory: 2G
